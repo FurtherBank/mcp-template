@@ -5,24 +5,16 @@ import { SearchOptions } from '@cpu-search/core/types';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { Command } from 'commander';
 
-// 解析命令行参数
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const options: { rootPath?: string } = {};
+const program = new Command();
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--root' && i + 1 < args.length) {
-      options.rootPath = args[i + 1];
-      i++; // 跳过下一个参数，因为它是rootPath的值
-    }
-  }
+program
+  .option('-r, --root <path>', 'The root path for the search')
+  .parse(process.argv);
 
-  return options;
-}
+const cliOptions = program.opts();
 
-// 获取命令行参数
-const cliOptions = parseArgs();
 // 默认工作目录，如果命令行没有提供则使用当前目录
 const DEFAULT_ROOT_PATH = process.cwd();
 
@@ -52,10 +44,10 @@ export async function generateSearchReport(params: {
   const engine = new SearchEngine(fs);
   const results = await engine.search(
     params.searchPattern,
-    cliOptions.rootPath || DEFAULT_ROOT_PATH,
+    cliOptions.root || DEFAULT_ROOT_PATH,
     params.options
   );
-  return engine.generateReport(results, cliOptions.rootPath || DEFAULT_ROOT_PATH);
+  return engine.generateReport(results, cliOptions.root || DEFAULT_ROOT_PATH);
 }
 
 /**
@@ -70,7 +62,7 @@ export async function searchAndReplace(params: {
   const engine = new SearchEngine(fs);
   const results = await engine.search(
     params.searchPattern,
-    cliOptions.rootPath || DEFAULT_ROOT_PATH,
+    cliOptions.root || DEFAULT_ROOT_PATH,
     params.options
   );
   await engine.replace(results, params.replaceText);
@@ -88,7 +80,7 @@ export async function searchAndReplace(params: {
 export async function applyReportChange(params: { reportText: string }): Promise<void> {
   const fs = new NodeFileSystem();
   const engine = new SearchEngine(fs);
-  await engine.applyReportChange(params.reportText, cliOptions.rootPath || DEFAULT_ROOT_PATH);
+  await engine.applyReportChange(params.reportText, cliOptions.root || DEFAULT_ROOT_PATH);
 }
 
 // MCP server setup
