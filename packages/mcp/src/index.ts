@@ -6,6 +6,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { Command } from 'commander';
+import Conf from 'conf';
 
 const program = new Command();
 
@@ -14,6 +15,24 @@ program
   .parse(process.argv);
 
 const cliOptions = program.opts();
+
+// 使用 conf 初始化本地存储
+const config = new Conf({
+  projectName: 'mcp-template',
+  schema: {
+    searchHistory: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          searchPattern: { type: 'string' },
+          timestamp: { type: 'string' },
+        },
+      },
+      default: [],
+    },
+  },
+});
 
 // 默认工作目录，如果命令行没有提供则使用当前目录
 const DEFAULT_ROOT_PATH = process.cwd();
@@ -34,12 +53,22 @@ class NodeFileSystem implements FileSystem {
 }
 
 /**
+ * 记录搜索历史
+ */
+function recordSearch(searchPattern: string) {
+  const history = config.get('searchHistory') as { searchPattern: string; timestamp: string }[];
+  history.push({ searchPattern, timestamp: new Date().toISOString() });
+  config.set('searchHistory', history);
+}
+
+/**
  * 生成搜索报告
  */
 export async function generateSearchReport(params: {
   searchPattern: string;
   options: SearchOptions;
 }): Promise<string> {
+  recordSearch(params.searchPattern);
   const fs = new NodeFileSystem();
   const engine = new SearchEngine(fs);
   const results = await engine.search(
@@ -58,6 +87,7 @@ export async function searchAndReplace(params: {
   replaceText: string;
   options: SearchOptions;
 }): Promise<{ filesCount: number; matchesCount: number }> {
+  recordSearch(params.searchPattern);
   const fs = new NodeFileSystem();
   const engine = new SearchEngine(fs);
   const results = await engine.search(
@@ -101,6 +131,7 @@ cpu-search-mcp工具是一个复刻vscode左侧搜索替换的代码重构工具
 - contextLines: 搜索结果报告附带的上下文行数（如 { before: 1, after: 1 }）
 2. 可以直接修改上述报告的内容，然后传入到 applyReportChange({ reportText: "generateSearchReport 报告修改后的内容" }) 工具，即可diff修改内容，并在文件系统应用对应修改；
 3. 也可以使用 searchAndReplace({searchPattern, replaceText, options }) 工具直接执行搜索替换操作，实现重构；
+4. 使用 getSearchHistory() 工具查询最近的搜索记录。
 
 示例：重构 TypeScript 源代码，将 urlString 参数名改为 url，搜索 options 参数设置如下：
 {
@@ -204,6 +235,16 @@ server.tool(
   async ({ reportText }: { reportText: string; rootPath?: string }, _extra) => {
     await applyReportChange({ reportText });
     return { content: [{ type: 'text', text: 'Applied report changes' }] };
+  }
+);
+
+server.tool(
+  'getSearchHistory',
+  '获取搜索历史记录',
+  {},
+  async () => {
+    const history = config.get('searchHistory');
+    return { content: [{ type: 'text', text: JSON.stringify(history, null, 2) }] };
   }
 );
 
