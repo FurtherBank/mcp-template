@@ -83,3 +83,12 @@ searchAndReplace({
   options: { caseSensitive: true },
 });
 ```
+
+## 开发
+
+1. pnpm start
+
+2. 点击 mcp inspector 的链接：🔍 MCP Inspector is up and running at http://127.0.0.1:6274 🚀
+使用 mcp 包默认的网页面板进行调试
+3. 在网页面板连接 mcp 工具，然后就可以在这个面板自由调试了
+![alt text](image.png)
